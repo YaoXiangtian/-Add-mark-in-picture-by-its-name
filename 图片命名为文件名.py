@@ -1,55 +1,79 @@
 from PIL import Image, ImageDraw, ImageFont
 import os
-import glob
 
-def batch_add_filename(input_dir, font_path='arial.ttf', font_size=30):
+def auto_add_watermark():
+    """
+    自动处理程序所在文件夹的所有图片
+    输出到当前目录下的watermarked文件夹
+    """
+    # 设置路径
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    output_dir = os.path.join(current_dir, "watermarked")
+    
     # 创建输出目录
-    output_dir = os.path.join(input_dir, 'processed_images')
     os.makedirs(output_dir, exist_ok=True)
 
-    # 支持的图片格式
-    extensions = ['*.jpg', '*.jpeg', '*.png', '*.webp', '*.bmp']
+    # 字体配置（Windows/Mac自动适配）
+    font_paths = [
+        'C:/Windows/Fonts/simhei.ttf',  # Windows
+        '/System/Library/Fonts/PingFang.ttc',  # macOS
+        '/usr/share/fonts/wenquanyi/wqy-zenhei/wqy-zenhei.ttc'  # Linux
+    ]
     
-    # 获取所有图片文件
-    image_files = []
-    for ext in extensions:
-        image_files.extend(glob.glob(os.path.join(input_dir, ext)))
-
-    # 设置字体
-    try:
-        font = ImageFont.truetype(font_path, font_size)
-    except:
+    # 自动检测可用字体
+    font = None
+    for path in font_paths:
+        if os.path.exists(path):
+            try:
+                font = ImageFont.truetype(path, 24)
+                break
+            except:
+                continue
+    
+    # 没有找到字体时使用默认字体
+    if not font:
         font = ImageFont.load_default()
-        print("警告：使用默认字体，建议提供字体文件以获得更好效果")
+        print("注意: 未找到中文字体，中文显示可能异常")
 
-    for img_path in image_files:
+    # 支持的文件格式
+    valid_ext = ['.jpg', '.jpeg', '.png', '.webp', '.bmp']
+
+    # 遍历当前目录
+    for filename in os.listdir(current_dir):
+        # 过滤非图片文件
+        if os.path.splitext(filename)[1].lower() not in valid_ext:
+            continue
+
+        input_path = os.path.join(current_dir, filename)
+        output_path = os.path.join(output_dir, f"WM_{filename}")
+
         try:
-            # 处理文件名
-            filename = os.path.splitext(os.path.basename(img_path))[0]
-            output_path = os.path.join(output_dir, os.path.basename(img_path))
-
-            # 打开图片
-            with Image.open(img_path) as img:
+            with Image.open(input_path) as img:
                 draw = ImageDraw.Draw(img)
-                
-                # 动态调整坐标到图片右侧
-                img_width, _ = img.size
-                x = min(1400, img_width - 10)  # 确保不超过图片右边界
-                position = (x, 100)
-                
-                # 添加文字（白色文字黑色描边）
-                draw.text(position, filename, font=font, fill=(100, 100, 255))
-                
+                width, height = img.size
+
+                # 计算文字位置 (n-50, 50)
+                x = width - 50
+                y = 50
+
+                # 绘制带描边的文字
+                draw.text(
+                    (x, y),
+                    filename,
+                    font=font,
+                    fill=(255, 255, 255),  # 白色文字
+                    anchor="rd",          # 右下角对齐
+                    stroke_width=2,       # 描边宽度
+                    stroke_fill=(0, 0, 0) # 黑色描边
+                )
+
                 # 保存图片（保持原格式）
                 img.save(output_path)
-            print(f"已处理：{os.path.basename(img_path)}")
+                print(f"成功处理: {filename}")
+
         except Exception as e:
-            print(f"处理失败：{os.path.basename(img_path)} - {str(e)}")
+            print(f"处理失败 [{filename}]: {str(e)}")
 
 if __name__ == "__main__":
-    # 使用示例 - 处理当前目录图片
-    batch_add_filename(
-        input_dir=os.getcwd(),  # 当前目录
-        font_path='arial.ttf',   # 字体文件路径
-        font_size=100            # 字体大小
-    )
+    auto_add_watermark()
+    print("处理完成，请查看watermarked文件夹")
